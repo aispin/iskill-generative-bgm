@@ -1,6 +1,9 @@
 /* ============================================================
- * iskill-generative-bgm · 纯前端生成式 BGM 引擎 v1.2.0
+ * iskill-generative-bgm · 纯前端生成式 BGM 引擎 v1.2.1
  * 零依赖 ESM —— Web Audio 实时合成，无任何音频素材，完全离线。
+ *
+ * v1.2.1 修复：ensureCtx 中 new AC() —— AC 为箭头函数无 [[Construct]]，
+ *   浏览器抛 "is not a constructor"；改为 new (AC())() 先取构造器再实例化。
  *
  * v1.2.0 新增乐器音色引擎（五种纯合成音色，零素材）：
  *   - voice: 'pluck'(默认拨弦) | 'piano'(钢琴) | 'guitar'(木吉他)
@@ -310,7 +313,8 @@ export function createBgm() {
 
   function ensureCtx() {
     if (!ctx) {
-      ctx = new AC();
+      /* AC 是箭头函数（无 [[Construct]]），必须先调用拿到 AudioContext 构造器再 new */
+      ctx = new (AC())();
       bus = ctx.createGain();
       master = ctx.createGain(); master.gain.value = 0;
       duckG = ctx.createGain(); duckG.gain.value = 1;

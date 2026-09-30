@@ -1,6 +1,6 @@
 {
   "name": "iskill-generative-bgm",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "type": "module",
   "description": "纯前端生成式 BGM 引擎（Web Audio 实时合成，零素材，支持 ABC 记法定义主题 + 五种乐器音色）",
   "main": "engine/bgm.js",
