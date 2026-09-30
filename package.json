@@ -1,11 +1,11 @@
 {
   "name": "iskill-generative-bgm",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "type": "module",
-  "description": "纯前端生成式 BGM 引擎（Web Audio 实时合成，零素材，支持 ABC 记法定义主题）",
+  "description": "纯前端生成式 BGM 引擎（Web Audio 实时合成，零素材，支持 ABC 记法定义主题 + 五种乐器音色）",
   "main": "engine/bgm.js",
   "scripts": {
-    "test": "node tests/parse.test.mjs"
+    "test": "node tests/parse.test.mjs && node tests/voice.test.mjs"
   },
   "license": "MIT"
 }

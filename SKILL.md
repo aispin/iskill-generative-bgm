@@ -1,11 +1,11 @@
 ---
 name: iskill-generative-bgm
-description: 纯前端生成式 BGM 技能。Web Audio 实时合成背景音乐，零音频素材、完全离线。支持 ABC 记谱定义主题（和声循环 + 显式旋律/生成式旋律）、氛围音预设（深空/雨夜/篝火/古琴）、人声闪避（ducking）。适用于网页应用/H5/电子书/儿童教育等任何需要程序化配乐的前端项目。
+description: 纯前端生成式 BGM 技能。Web Audio 实时合成背景音乐，零音频素材、完全离线。支持 ABC 记谱定义主题（和声循环 + 显式旋律/生成式旋律）、五种乐器音色（拨弦/钢琴/木吉他 Karplus-Strong 物理建模/八音盒/FM 电钢）、氛围音预设（深空/雨夜/篝火/古琴）、人声闪避（ducking）。适用于网页应用/H5/电子书/儿童教育等任何需要程序化配乐的前端项目。
 ---
 
 # iskill-generative-bgm · 纯前端生成式 BGM
 
-Web Audio 实时合成背景音乐，**零素材、零依赖、完全离线**。引擎单文件 `engine/bgm.js`（ESM，约 500 行），拷进任何前端项目即可用。
+Web Audio 实时合成背景音乐，**零素材、零依赖、完全离线**。引擎单文件 `engine/bgm.js`（ESM，约 640 行），拷进任何前端项目即可用。
 
 ## 快速上手
 
@@ -28,10 +28,34 @@ bgm.stop();
 
 | kind | 说明 | 可用 id |
 |------|------|---------|
-| `'theme'` | 旋律型主题：和弦进行（pad+低音）+ 拨弦主旋律 | `morning` `cheerful`（默认）`school` `calm` `bedtime` |
+| `'theme'` | 旋律型主题：和弦进行（pad+低音）+ 乐器主旋律 | `morning` `cheerful`（默认）`school` `calm` `bedtime` `campfire` |
 | `'ambience'` | 氛围型预设：噪声/振荡器现场合成 | `deepspace` `rain` `fire` `guqin` |
 
-`suggestTheme(tags)`：按场景标签关键词（中英文）推荐主题，如 `['morning','park']→morning`、`['bedtime']→bedtime`、`['chores']→cheerful`。
+`suggestTheme(tags)`：按场景标签关键词（中英文）推荐主题，如 `['morning','park']→morning`、`['bedtime']→bedtime`、`['chores']→cheerful`、`['露营','篝火']→campfire`。
+
+## 乐器音色（v1.2.0 核心）
+
+五种**纯合成**音色（零采样素材），主题定义里用 `voice` 字段选择：
+
+| voice | 实现方式 | 音色特点 |
+|-------|----------|----------|
+| `pluck`（默认） | 三角波 + 低通 + 指数衰减 | 短促拨弦「点点」感 |
+| `piano` | 多泛音加法合成（微非谐倍频）+ 亮度扫频 | 声学钢琴，起音亮衰减暗 |
+| `guitar` | **Karplus-Strong 物理建模**（激振噪声 + 延迟环内低通） | 木吉他拨弦，低音自然延音更长 |
+| `musicbox` | 正弦基音 + 非谐泛音（3.36x / 6.7x） | 八音盒金属小锤质感 |
+| `epiano` | FM 合成（1:1 载波/调制器 + tine 快衰减 + 铃音攻击） | Rhodes 式电钢 |
+
+内置主题音色分配：`school`→钢琴、`calm`→电钢、`bedtime`→八音盒、`campfire`→吉他（C-G-Am-F 慢速，84bpm）、`morning`/`cheerful`→拨弦。
+
+运行时覆盖音色（不改注册表）：
+
+```js
+bgm.start({ kind: 'theme', id: 'cheerful', voice: 'guitar' });  // 点点旋律改吉他弹
+```
+
+自定义主题同样支持：`registerAbcTheme(id, abc, { voice: 'piano' })`。
+
+导出工具：`VOICES`（音色清单）、`ksSamples(sampleRate, midi, { damp, dur, bright })`——Karplus-Strong 纯函数（无 AudioContext），可在 Node 里直接测试。
 
 ## ABC 记谱（v1.1.0 核心）
 
@@ -72,7 +96,7 @@ K:C
 
 ```js
 const bgm = createBgm();
-bgm.start({ kind:'theme'|'ambience', id, volume })  // 开始（手势内首次调用）
+bgm.start({ kind:'theme'|'ambience', id, voice, volume })  // 开始（手势内首次调用；voice 可覆盖主题音色）
 bgm.stop()                    // 停止（0.5s 淡出）
 bgm.duck(level, ms)           // 闪避：压到 level（0~1，推荐 0.25）
 bgm.unduck(ms)                // 恢复
@@ -94,7 +118,7 @@ bgm.playing / bgm.theme       // 状态
 ## 测试
 
 ```bash
-npm test   # node tests/parse.test.mjs —— 解析器/和弦/调号/主题注册 26 项断言
+npm test   # 37 项断言：parse.test.mjs（解析器/和弦/调号/主题注册 26 项）+ voice.test.mjs（KS 物理建模/音色装配/衰减与亮度 11 项）
 ```
 
 ## 演进路线

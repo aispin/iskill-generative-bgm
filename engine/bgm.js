@@ -1,6 +1,14 @@
 /* ============================================================
- * iskill-generative-bgm · 纯前端生成式 BGM 引擎 v1.1.0
+ * iskill-generative-bgm · 纯前端生成式 BGM 引擎 v1.2.0
  * 零依赖 ESM —— Web Audio 实时合成，无任何音频素材，完全离线。
+ *
+ * v1.2.0 新增乐器音色引擎（五种纯合成音色，零素材）：
+ *   - voice: 'pluck'(默认拨弦) | 'piano'(钢琴) | 'guitar'(木吉他)
+ *            | 'musicbox'(八音盒) | 'epiano'(FM 电钢)
+ *   - 主题可配置音色（school→钢琴 / calm→电钢 / bedtime→八音盒
+ *     / 新增 campfire 篝火吉他）；start({voice}) 可运行时覆盖
+ *   - 吉他为 Karplus-Strong 物理建模拨弦（ksSamples 纯函数可测试，
+ *     样本按 音高+采样率 缓存）
  *
  * v1.1.0 新增 ABC 记谱支持：
  *   - parseAbc(abcText) 解析实用子集（X/T/M/Q/L/K 头 + "和弦"符号 + 音名时值 + z 休止）
@@ -9,11 +17,11 @@
  *     强拍取最近和弦音，弱拍沿调式音阶级进，短促拨弦音色）
  *
  * 两种音源：
- *   kind:'theme'    旋律型主题（和弦进行 + 拨弦旋律 + 低音 + 和声垫）
+ *   kind:'theme'    旋律型主题（和弦进行 + 乐器主旋律 + 低音 + 和声垫）
  *   kind:'ambience' 氛围型预设（深空/雨夜/篝火/古琴）
  *
  * 核心 API（createBgm() 返回）：
- *   start({ kind, id, volume })  开始播放（需在用户手势内首次调用）
+ *   start({ kind, id, voice, volume })  开始播放（需在用户手势内首次调用）
  *   stop() / setVolume(v) / duck(level, ms) / unduck(ms) / unlock() / dispose()
  *   suggestTheme(tags)           按关键词/标签猜主题
  *   registerAbcTheme(id, abc)    用 ABC 记谱注册/覆盖主题
@@ -173,20 +181,25 @@ const THEME_DEFS = {
     abc: 'X:1\nT:Cheerful Dots (F-G-Am)\nM:4/4\nQ:1/4=112\nL:1/8\nK:C\n"F"z8 | "G"z8 | "Am"z8 |',
     wave: 'triangle', bright: 2400, staccato: true, padGain: .038, melodyGain: .1, bassGain: .11
   },
-  /* 校园：C 大调，规整对拍 */
+  /* 校园：C 大调，规整对拍（钢琴音色） */
   school: {
-    bpm: 104, wave: 'triangle', bright: 2400, staccato: false, padGain: .04, melodyGain: .1, bassGain: .11,
+    bpm: 104, voice: 'piano', bright: 2600, staccato: false, padGain: .04, melodyGain: .1, bassGain: .11,
     ...fromChords([[60, 65, 69], [62, 65, 69], [65, 69, 72], [67, 72, 76]], { perBar: 8, scalePC: [0, 2, 4, 5, 7, 9, 11], base: 65 })
   },
-  /* 平静：A 小调，慢而柔 */
+  /* 平静：A 小调，慢而柔（FM 电钢铺底） */
   calm: {
-    bpm: 76, wave: 'sine', bright: 1700, staccato: false, padGain: .055, melodyGain: .1, bassGain: .1,
+    bpm: 76, voice: 'epiano', bright: 1900, staccato: false, padGain: .05, melodyGain: .1, bassGain: .1,
     ...fromChords([[57, 60, 64], [53, 57, 60], [55, 60, 64], [52, 55, 60]], { perBar: 8, scalePC: [0, 2, 3, 5, 7, 8, 10], base: 57 })
   },
   /* 睡前：C 大调摇篮曲（3/4 感），八音盒音色 */
   bedtime: {
-    bpm: 64, wave: 'sine', bright: 1500, staccato: false, padGain: .05, melodyGain: .1, bassGain: .09,
+    bpm: 64, voice: 'musicbox', bright: 1500, staccato: false, padGain: .05, melodyGain: .1, bassGain: .09,
     ...fromChords([[60, 64, 67], [59, 62, 67], [57, 60, 64], [55, 59, 62]], { perBar: 6, scalePC: [0, 2, 4, 7, 9], base: 72 })
+  },
+  /* 篝火：C-G-Am-F 慢速木吉他（Karplus-Strong 物理建模） */
+  campfire: {
+    bpm: 84, voice: 'guitar', bright: 2600, staccato: false, padGain: .028, melodyGain: .1, bassGain: .09,
+    ...fromChords([[60, 64, 67], [55, 59, 62], [57, 60, 64], [53, 57, 60]], { perBar: 8, scalePC: [0, 2, 4, 5, 7, 9, 11], base: 60 })
   }
 };
 
@@ -199,12 +212,12 @@ function resolveTheme(def) {
 }
 for (const [id, def] of Object.entries(THEME_DEFS)) THEMES[id] = resolveTheme(def);
 
-/** 用 ABC 记谱注册/覆盖主题；opts 可覆盖音色参数（wave/bright/staccato/各增益） */
+/** 用 ABC 记谱注册/覆盖主题；opts 可覆盖音色参数（voice/wave/bright/staccato/各增益） */
 export function registerAbcTheme(id, abc, opts = {}) {
   const p = parseAbc(abc);
   if (!p.bars.length) throw new Error('parseAbc: no bars');
   THEMES[id] = {
-    wave: 'triangle', bright: 2400, staccato: false,
+    voice: 'pluck', wave: 'triangle', bright: 2400, staccato: false,
     padGain: .04, melodyGain: .1, bassGain: .11,
     ...opts,
     perBar: p.perBar, base: 60, scalePC: p.scalePC, bars: p.bars, bpm: p.bpm
@@ -219,7 +232,8 @@ const TAG_MAP = [
   [['bath', 'bedtime', 'sleep', 'night', '洗澡', '睡前', '睡觉', '夜晚'], 'bedtime'],
   [['rain', 'weather', 'storm', '雨', '天气'], 'calm'],
   [['zoo', 'play', 'game', 'party', '动物园', '玩', '游戏', '派对'], 'cheerful'],
-  [['food', 'cook', 'kitchen', 'supermarket', 'chores', '餐', '厨房', '做饭', '超市', '家务'], 'cheerful']
+  [['food', 'cook', 'kitchen', 'supermarket', 'chores', '餐', '厨房', '做饭', '超市', '家务'], 'cheerful'],
+  [['campfire', 'guitar', 'travel', 'outing', 'camp', '露营', '旅行', '郊游', '吉他', '篝火'], 'campfire']
 ];
 
 export function suggestTheme(tags) {
@@ -230,6 +244,59 @@ export function suggestTheme(tags) {
 }
 
 export const AMBIENCES = ['deepspace', 'rain', 'fire', 'guqin'];
+
+/* ============================================================
+ * 二·五、乐器音色引擎（v1.2.0）—— 五种纯合成音色，零素材
+ *   pluck    三角波拨弦（默认，点点感）
+ *   piano    多泛音加法合成 + 微非谐 + 亮度扫频（拟声学钢琴）
+ *   guitar   Karplus-Strong 物理建模拨弦（拟木吉他）
+ *   musicbox 八音盒：正弦 + 非谐泛音、极短起音、长衰减
+ *   epiano   FM 合成电钢（Rhodes 式 tine 打击感 + 铃音攻击）
+ * ============================================================ */
+
+export const VOICES = ['pluck', 'piano', 'guitar', 'musicbox', 'epiano'];
+
+const m2f = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+/** Karplus-Strong 拨弦：预计算样本到 Float32Array（纯函数，无 AudioContext，可在 Node 测试）
+ *  damp 环内阻尼（0.99~0.999，越大延音越长）；bright 0~1 激振噪声亮度；dur 秒数。
+ *  低音每秒环更新次数少 → 衰减更慢，符合真实弦物理。 */
+export function ksSamples(sr, midi, { damp = .996, dur = 2, bright = .55 } = {}) {
+  const f = m2f(midi);
+  const N = Math.max(2, Math.round(sr / f));
+  const len = Math.max(N + 1, Math.floor(sr * dur));
+  const out = new Float32Array(len);
+  const dl = new Float32Array(N);
+  let prev = 0;
+  for (let i = 0; i < N; i++) {
+    const w = Math.random() * 2 - 1;
+    prev += bright * (w - prev);          /* 一阶低通预滤波激振噪声（bright 低→音色闷） */
+    dl[i] = prev;
+  }
+  let idx = 0;
+  for (let i = 0; i < len; i++) {
+    const cur = dl[idx];
+    out[i] = cur;
+    dl[idx] = damp * .5 * (cur + dl[(idx + 1) % N]);   /* 环内低通 = 每周期损失高频 */
+    idx = (idx + 1) % N;
+  }
+  /* 峰值归一，统一各音高响度 */
+  let peak = 0;
+  for (let i = 0; i < len; i++) { const a = Math.abs(out[i]); if (a > peak) peak = a; }
+  if (peak > 1e-9) { const k = .9 / peak; for (let i = 0; i < len; i++) out[i] *= k; }
+  return out;
+}
+
+/* KS 样本缓存：key = 采样率:音高:亮度（样本数据与 Context 无关，可跨实例复用） */
+const KS_CACHE = new Map();
+function ksBuffer(ctx, midi, bright) {
+  const key = ctx.sampleRate + ':' + midi + ':' + bright;
+  let s = KS_CACHE.get(key);
+  if (!s) { s = ksSamples(ctx.sampleRate, midi, { bright }); KS_CACHE.set(key, s); }
+  const buf = ctx.createBuffer(1, s.length, ctx.sampleRate);
+  buf.copyToChannel(s, 0);
+  return buf;
+}
 
 /* ============================================================
  * 三、播放引擎
@@ -269,7 +336,17 @@ export function createBgm() {
   }
 
   /* ---------- 旋律声部 ---------- */
-  const m2f = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+  /* 音色调度：按主题 cfg.voice 分发到对应合成器 */
+  function noteVoice(cfg, t, midi, g0, dur) {
+    switch (cfg.voice) {
+      case 'piano': pianoNote(t, midi, g0, dur, cfg.bright || 2600); break;
+      case 'guitar': guitarNote(t, midi, g0, dur); break;
+      case 'musicbox': musicboxNote(t, midi, g0, dur); break;
+      case 'epiano': epianoNote(t, midi, g0, dur); break;
+      default: pluck(t, midi, g0, dur, cfg.wave || 'triangle', cfg.bright || 2400);
+    }
+  }
 
   function pluck(t, midi, g0, dur, wave, filterF) {
     const o = ctx.createOscillator(); o.type = wave; o.frequency.value = m2f(midi);
@@ -280,6 +357,82 @@ export function createBgm() {
     g.gain.exponentialRampToValueAtTime(1e-4, t + dur);
     o.connect(f); f.connect(g); g.connect(bus);
     o.start(t); o.stop(t + dur + .05);
+  }
+
+  /* 钢琴：多泛音加法合成（微非谐倍频）+ 起音亮→衰减暗的低通扫频 */
+  function pianoNote(t, midi, g0, dur, bright) {
+    const f = m2f(midi), nyq = ctx.sampleRate * .45;
+    const rel = Math.max(dur * 1.5, .7);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(g0, t + .007);
+    g.gain.exponentialRampToValueAtTime(g0 * .16, t + rel * .6);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + rel);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(Math.min(bright * 1.8, 7500), t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(bright * .25, 320), t + rel * .8);
+    g.connect(lp); lp.connect(bus);
+    [[1, 1], [2.001, .42], [2.998, .16], [4.006, .07]].forEach(([r, a]) => {
+      if (f * r > nyq) return;
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * r;
+      const og = ctx.createGain(); og.gain.value = a;
+      o.connect(og).connect(g);
+      o.start(t); o.stop(t + rel + .1);
+    });
+  }
+
+  /* 木吉他：Karplus-Strong 物理建模（样本按音高缓存）+ 柔化低通 */
+  function guitarNote(t, midi, g0, dur) {
+    const s = ctx.createBufferSource(); s.buffer = ksBuffer(ctx, midi, .55);
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3400;
+    const g = ctx.createGain();
+    const rel = Math.min(Math.max(dur * 1.2, .5), s.buffer.duration);
+    g.gain.setValueAtTime(g0 * 1.5, t);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + rel);
+    s.connect(lp); lp.connect(g); g.connect(bus);
+    s.start(t); s.stop(t + rel + .05);
+  }
+
+  /* 八音盒：正弦基音 + 非谐泛音（金属小锤质感），极短起音、长尾衰减 */
+  function musicboxNote(t, midi, g0, dur) {
+    const f = m2f(midi), nyq = ctx.sampleRate * .45;
+    [[1, 1, 1.15], [3.36, .16, .75], [6.7, .05, .35]].forEach(([r, a, dec]) => {
+      if (f * r > nyq) return;
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * r;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(g0 * a, t + .004);
+      g.gain.exponentialRampToValueAtTime(1e-4, t + Math.max(dec, dur * .45));
+      o.connect(g); g.connect(bus);
+      o.start(t); o.stop(t + Math.max(dec, dur * .45) + .05);
+    });
+  }
+
+  /* FM 电钢（Rhodes 式）：1:1 载波/调制器 + tine 调制深度快衰减 + 高频铃音攻击 */
+  function epianoNote(t, midi, g0, dur) {
+    const f = m2f(midi), hold = Math.max(dur, .55);
+    const car = ctx.createOscillator(); car.type = 'sine'; car.frequency.value = f;
+    const mod = ctx.createOscillator(); mod.type = 'sine'; mod.frequency.value = f;
+    const mg = ctx.createGain();
+    mg.gain.setValueAtTime(f * 2.8, t);
+    mg.gain.exponentialRampToValueAtTime(f * .1, t + .32);
+    mod.connect(mg); mg.connect(car.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(g0, t + .009);
+    g.gain.exponentialRampToValueAtTime(g0 * .3, t + hold);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + hold + .55);
+    car.connect(g); g.connect(bus);
+    car.start(t); mod.start(t);
+    car.stop(t + hold + .65); mod.stop(t + hold + .65);
+    if (f * 3.5 < ctx.sampleRate * .45) {
+      const bell = ctx.createOscillator(); bell.type = 'sine'; bell.frequency.value = f * 3.5;
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(g0 * .14, t);
+      bg.gain.exponentialRampToValueAtTime(1e-4, t + .16);
+      bell.connect(bg); bg.connect(bus);
+      bell.start(t); bell.stop(t + .2);
+    }
   }
 
   function pad(t, midis, g0, len, bright) {
@@ -339,7 +492,7 @@ export function createBgm() {
       /* 显式旋律：照谱演奏 */
       for (const n of bar.melody)
         if (n.start === inBar)
-          pluck(t, n.midi, cfg.melodyGain, Math.max(.14, n.dur * spu * .92), cfg.wave, cfg.bright);
+          noteVoice(cfg, t, n.midi, cfg.melodyGain, Math.max(.14, n.dur * spu * .92));
     } else {
       /* 生成式：围绕当前小节和弦 */
       const strong = inBar % 2 === 0;
@@ -347,14 +500,16 @@ export function createBgm() {
         curMidi = pickNext(cfg, bar, strong);
         curMidi = Math.max(cfg.base + 12, Math.min(cfg.base + 31, curMidi));
         const dur = cfg.staccato ? .18 : spu * (1 + Math.random() * .8);
-        pluck(t, curMidi, cfg.melodyGain * (strong ? 1 : .78), dur, cfg.wave, cfg.bright);
+        noteVoice(cfg, t, curMidi, cfg.melodyGain * (strong ? 1 : .78), dur);
       }
     }
   }
 
-  function startTheme(id) {
-    const cfg = THEMES[id];
-    if (!cfg) throw new Error('unknown theme: ' + id);
+  function startTheme(id, voiceOv) {
+    const src = THEMES[id];
+    if (!src) throw new Error('unknown theme: ' + id);
+    /* voice 覆盖：start({voice}) 运行时切音色，不动注册表 */
+    const cfg = voiceOv && voiceOv !== src.voice ? { ...src, voice: voiceOv } : src;
     theme = id;
     const spu = 60 / cfg.bpm / 2;
     const perBar = cfg.perBar || 8;
@@ -495,7 +650,7 @@ export function createBgm() {
       if (opts.volume != null) volume = Math.max(0, Math.min(1, opts.volume));
       master.gain.setValueAtTime(0, c.currentTime);
       master.gain.linearRampToValueAtTime(volume, c.currentTime + .9);
-      if (kind === 'theme') startTheme(id); else startAmbience(id);
+      if (kind === 'theme') startTheme(id, opts.voice); else startAmbience(id);
       return true;
     },
     stop(fast) {
