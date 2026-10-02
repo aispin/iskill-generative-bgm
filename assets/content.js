@@ -34,14 +34,19 @@ window.PROMO = {
         meta2: "纯 Web Audio",
         meta3: "完全离线"
       },
-      terminal: {
-        title: "zsh — iskill-generative-bgm",
-        lines: [
-          [{ t: "$ ", c: "p" }, { t: "npm test", c: "k" }, { t: "        # 仓库自带 37 项断言", c: "c" }],
-          [{ t: "✓ ", c: "p" }, { t: "26 pass, 0 fail   解析器 / 和弦 / 调号 / 主题注册", c: "s" }],
-          [{ t: "✓ ", c: "p" }, { t: "11 pass           Karplus-Strong 建模 / 音色装配", c: "s" }]
+      chat: {
+        title: "AI Agent · 对话现场",
+        status: "在线",
+        userLabel: "你",
+        agentLabel: "AI",
+        messages: [
+          { role: "user", text: "给这个阅读器加一段雨夜氛围的 BGM，要纯前端" },
+          { role: "agent", text: "Web Audio 实时合成，零音频素材、完全离线；雨夜是内置氛围预设，配八音盒或木吉他（Karplus-Strong 物理建模）都行。", tag: "已读 ABC 记谱" },
+          { role: "user", text: "有人说话时要自动压低" },
+          { role: "agent", text: "人声闪避（ducking）内置。另外记得在用户手势里 start——不然浏览器会拦住音频。" }
         ]
       },
+
 
       stats: [
         { value: "5", label: "种纯合成音色", note: "拨弦 / 钢琴 / 木吉他 / 八音盒 / FM 电钢" },
@@ -142,14 +147,19 @@ window.PROMO = {
         meta2: "Pure Web Audio",
         meta3: "Fully offline"
       },
-      terminal: {
-        title: "zsh — iskill-generative-bgm",
-        lines: [
-          [{ t: "$ ", c: "p" }, { t: "npm test", c: "k" }, { t: "        # 37 assertions shipped with the repo", c: "c" }],
-          [{ t: "✓ ", c: "p" }, { t: "26 pass, 0 fail   parser / chords / key signature / theme registry", c: "s" }],
-          [{ t: "✓ ", c: "p" }, { t: "11 pass           Karplus-Strong model / voice assembly", c: "s" }]
+      chat: {
+        title: "AI Agent · live session",
+        status: "online",
+        userLabel: "You",
+        agentLabel: "AI",
+        messages: [
+          { role: "user", text: "Add a rainy-night ambient BGM to this reader — front-end only" },
+          { role: "agent", text: "Synthesized live with Web Audio: zero audio assets, fully offline. Rainy night is a built-in ambience preset; pair it with music box or the Karplus-Strong guitar model.", tag: "read ABC notation" },
+          { role: "user", text: "It should duck when someone speaks" },
+          { role: "agent", text: "Ducking is built in. One thing to remember: start it inside a user gesture, otherwise the browser blocks audio." }
         ]
       },
+
 
       stats: [
         { value: "5", label: "synthesised voices", note: "pluck / piano / guitar / musicbox / epiano" },
