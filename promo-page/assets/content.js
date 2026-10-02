@@ -96,13 +96,14 @@ window.PROMO = {
       steps: {
         eyebrow: "上手",
         title: "三步跑起来",
-        sub: "",
+        sub: "命令由 agent 跑，你只说要什么、看结果。",
         items: [
           { title: "交给 AI 装", desc: "把这句话粘进对话框，agent 会自己拉代码、读文档，再告诉你用法。", codeKey: "install" },
-          { title: "跑测试确认引擎", desc: "仓库自带 37 项断言，装完先验一遍。", codeName: "bash", code: "npm test" },
-          { title: "在页面里接上", desc: "把 engine/bgm.js 拷进项目，在用户手势内 start。", codeName: "js", code: "bgm.start({ kind: 'theme', id: 'cheerful', voice: 'guitar', volume: .3 })" }
+          { title: "说要什么氛围", desc: "音乐是实时合成的，不是下载素材；场景、乐器、音量说清就行。", codeName: "prompt", code: "给这个阅读器加一段雨夜氛围的 BGM，纯前端合成，进页面才起播。" },
+          { title: "戴上耳机听", desc: "代码接进页面后，你在浏览器里听效果；换情绪、换音色只是换一个 id。" }
         ]
       },
+
 
       faq: {
         eyebrow: "问答",
@@ -203,13 +204,14 @@ window.PROMO = {
       steps: {
         eyebrow: "Get started",
         title: "Up and running in three steps",
-        sub: "",
+        sub: "The agent runs the commands. You say what you want and check the result.",
         items: [
-          { title: "Let your agent install it", desc: "Paste the line into the chat — it clones the repo, reads the docs and tells you how to use it.", codeKey: "install" },
-          { title: "Verify the engine", desc: "The repo ships 37 assertions; run them first.", codeName: "bash", code: "npm test" },
-          { title: "Wire it into your page", desc: "Copy engine/bgm.js into the project and start it inside a user gesture.", codeName: "js", code: "bgm.start({ kind: 'theme', id: 'cheerful', voice: 'guitar', volume: .3 })" }
+          { title: "Let your agent install it", desc: "Paste the line into the chat — it clones the repo, reads the docs, and tells you how to use it.", codeKey: "install" },
+          { title: "Say what mood you want", desc: "The music is synthesized live, not downloaded. Scene, instrument and volume are enough.", codeName: "prompt", code: "Add a rainy-night ambient BGM to this reader — pure front-end synthesis, starting on user gesture." },
+          { title: "Listen with headphones", desc: "Once it's wired into the page, you judge it in the browser. Changing mood or timbre is just another id." }
         ]
       },
+
 
       faq: {
         eyebrow: "FAQ",
